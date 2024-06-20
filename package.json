@@ -1,0 +1,15 @@
+{
+  "name": "to-do-list-electron",
+  "version": "1.0.0",
+  "description": "A simple to-do list desktop application.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^13.1.7"
+  },
+  "devDependencies": {},
+  "author": "Your Name",
+  "license": "MIT"
+}
