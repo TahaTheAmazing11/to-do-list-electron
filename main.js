@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 const PDFDocument = require('pdfkit');
-const { Document, Packer, Paragraph, TextRun } = require('docx');
 
 let tasks = [];
 
@@ -52,7 +51,7 @@ function createWindow() {
     });
 
     // Create application menu
-    const menu = Menu.buildFromTemplate([
+    const menuTemplate = [
         {
             label: 'File',
             submenu: [
@@ -60,12 +59,6 @@ function createWindow() {
                     label: 'Export as PDF',
                     click() {
                         exportTasksAsPDF();
-                    }
-                },
-                {
-                    label: 'Export as Word',
-                    click() {
-                        exportTasksAsWord();
                     }
                 },
                 {
@@ -82,7 +75,9 @@ function createWindow() {
                 }
             ]
         }
-    ]);
+    ];
+
+    const menu = Menu.buildFromTemplate(menuTemplate);
     Menu.setApplicationMenu(menu);
 }
 
@@ -116,7 +111,6 @@ ipcMain.on('delete-task', (event, index) => {
     event.sender.send('tasks', tasks); // Send updated tasks to renderer
 });
 
-// Export functions
 function exportTasksAsPDF() {
     const filePath = dialog.showSaveDialogSync({
         title: 'Save Tasks as PDF',
@@ -127,34 +121,30 @@ function exportTasksAsPDF() {
     if (!filePath) return;
 
     const doc = new PDFDocument();
-    doc.pipe(fs.createWriteStream(filePath));
-    doc.fontSize(16).text('Tasks', { align: 'center' });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
 
+    // Date in top right corner
+    const now = new Date();
+    const formattedDate = now.toLocaleString();
+    const dateTextWidth = doc.widthOfString(formattedDate);
+    doc.fontSize(10).fillColor('#333').text(formattedDate, { align: 'right', width: dateTextWidth });
+
+    // Title
+    doc.moveDown();
+    doc.fontSize(24).fillColor('#007BFF').text('To-Do List', { align: 'center' });
+    doc.moveDown();
+
+    // Tasks
     tasks.forEach((task, index) => {
-        doc.fontSize(12).text(`${index + 1}. ${task}`, { align: 'left' });
+        const backgroundColor = index % 2 === 0 ? '#f9f9f9' : '#eee';
+        doc.fontSize(12).fillColor('#333').text(`${index + 1}. ${task}`, { align: 'left', backgroundColor });
+        doc.moveDown();
     });
 
     doc.end();
-}
-
-function exportTasksAsWord() {
-    const filePath = dialog.showSaveDialogSync({
-        title: 'Save Tasks as Word',
-        defaultPath: 'tasks.docx',
-        filters: [{ name: 'Word Files', extensions: ['docx'] }]
-    });
-
-    if (!filePath) return;
-
-    const doc = new Document();
-    const paragraphs = tasks.map((task, index) => new Paragraph(`${index + 1}. ${task}`));
-
-    doc.addSection({
-        children: [new Paragraph({ text: 'Tasks', heading: 'Heading1' }), ...paragraphs]
-    });
-
-    Packer.toBuffer(doc).then((buffer) => {
-        fs.writeFileSync(filePath, buffer);
+    stream.on('finish', () => {
+        console.log(`PDF created: ${filePath}`);
     });
 }
 
